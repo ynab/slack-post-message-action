@@ -13,6 +13,10 @@ inputs:
   text:
     description: "The message text to post"
     required: true
+  unfurl_links:
+    description: "Whether links in the message should be unfurled"
+    type: boolean
+    default: true
 outputs:
   ts:
     description: "The timestamp ID of the message that was just posted"
@@ -23,11 +27,17 @@ runs:
   using: 'composite'
   steps:
     - run: |
+        response=$(curl --fail-with-body --silent --show-error \
+          --request POST \
+          --header "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN || inputs.token }}" \
+          --header "Content-Type: application/json; charset=utf-8" \
+          --url https://slack.com/api/chat.postMessage \
+          --data "{\"channel\": \"${{ inputs.channel }}\", \"thread_ts\": \"${{ inputs.thread_ts }}\", \"unfurl_links\": ${{ inputs.unfurl_links }}, \"text\": \"${{ inputs.text }}\"}" \
+        )
+        echo "Slack API response:\n$response"
         {
-          echo "ts=<<EOF"
-          curl --silent --show-error -X POST -H "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN || inputs.token }}" -H "Content-Type: application/json; charset=utf-8" --url https://slack.com/api/chat.postMessage \
-            -d "{\"channel\": \"${{ inputs.channel }}\", \"thread_ts\":\"${{ inputs.thread_ts }}\", \"text\":\"${{ inputs.text }}\"}" \
-            | jq --raw-output '.ts'
+          echo "ts<<EOF"
+          echo "$response" | jq --raw-output '.ts'
           echo "EOF"
         } >> "$GITHUB_OUTPUT"
       shell: bash
