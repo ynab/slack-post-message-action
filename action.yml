@@ -35,13 +35,27 @@ runs:
     - name: POST to chat.postMessage API
       id: slack-post-message
       shell: bash
+      env:
+        INPUT_CHANNEL: ${{ inputs.channel }}
+        INPUT_THREAD_TS: ${{ inputs.thread_ts }}
+        INPUT_UNFURL_LINKS: ${{ inputs.unfurl_links }}
+        INPUT_TEXT: ${{ inputs.text }}
       run: |
+        # Interpret escape sequences (e.g. \n) so jq encodes them correctly,
+        # preserving backwards compatibility with the old $'...' bash quoting.
+        INPUT_TEXT=$(printf '%b' "$INPUT_TEXT")
+        payload=$(jq --null-input \
+          --arg channel "$INPUT_CHANNEL" \
+          --arg thread_ts "$INPUT_THREAD_TS" \
+          --argjson unfurl_links "$INPUT_UNFURL_LINKS" \
+          --arg text "$INPUT_TEXT" \
+          '{channel: $channel, thread_ts: $thread_ts, unfurl_links: $unfurl_links, text: $text}')
         response=$(curl --fail-with-body --silent --show-error \
           --request POST \
           --header "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN || inputs.token }}" \
           --header "Content-Type: application/json; charset=utf-8" \
           --url https://slack.com/api/chat.postMessage \
-          --data $'{"channel": "${{ inputs.channel }}", "thread_ts": "${{ inputs.thread_ts }}", "unfurl_links": ${{ inputs.unfurl_links }}, "text": "${{ inputs.text }}"}' \
+          --data "$payload" \
         )
         echo "Slack message API response:\n$response"
         ts=$(echo "$response" | jq --raw-output '.ts')
