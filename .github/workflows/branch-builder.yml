@@ -36,3 +36,17 @@ jobs:
           thread_ts: ${{ steps.basic-message.outputs.ts }}
           text: "Test various text formatting:\n• Single quotes must be escaped \\' (b/c bash)\n• literal emoji 😀\n• colon-formatted emoji :blob-wave:\n• *bold text*\n• _italicized text_\n• ~strikethrough text~\n• `inline code`\n• Automatically linked text www.ynab.com\n• Link with <http://www.ynab.com|custom text>\n>Block quote\n```Multi-line\ncode```"
           unfurl_links: false
+      - name: Test Slack message with multiline text (literal newlines)
+        uses: ./
+        with:
+          channel: ${{ env.SLACK_CHANNEL_ID }}
+          thread_ts: ${{ steps.basic-message.outputs.ts }}
+          text: |-
+            :rocket: *Test multiline message with literal newlines*
+
+            ───────────────────
+            :sparkles: *What's in this release:*
+            • Fixed transaction image overlay to display above the help widget
+            • Mobile apps now show bank institution names and logos
+            • Improved mobile app performance when loading budget data
+          unfurl_links: false
