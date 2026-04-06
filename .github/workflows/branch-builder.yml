@@ -7,10 +7,14 @@ on:
       branches: [ main ]
       tags-ignore: "**"
     workflow_dispatch:
+      inputs:
+        channel_override:
+          description: "Optional Slack channel/DM ID to post to instead of the default test channel"
+          required: false
 env:
   BRANCH_NAME: ${{ github.head_ref || github.ref_name }} # github.head_ref for pull_request event and github.ref_name for push event
   SLACK_BOT_TOKEN: ${{ secrets.SLACK_TEST_TOKEN }}
-  SLACK_CHANNEL_ID: ${{ secrets.SLACK_TEST_CHANNEL_ID }}
+  SLACK_CHANNEL_ID: ${{ github.event.inputs.channel_override || secrets.SLACK_TEST_CHANNEL_ID }}
 jobs:
   build:
     runs-on: ubuntu-latest
