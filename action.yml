@@ -41,6 +41,9 @@ runs:
         INPUT_UNFURL_LINKS: ${{ inputs.unfurl_links }}
         INPUT_TEXT: ${{ inputs.text }}
       run: |
+        # Interpret escape sequences (e.g. \n) so jq encodes them correctly,
+        # preserving backwards compatibility with the old $'...' bash quoting.
+        INPUT_TEXT=$(printf '%b' "$INPUT_TEXT")
         payload=$(jq --null-input \
           --arg channel "$INPUT_CHANNEL" \
           --arg thread_ts "$INPUT_THREAD_TS" \
