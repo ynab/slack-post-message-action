@@ -29,9 +29,12 @@ runs:
   steps:
     - name: Validate required inputs
       shell: bash
+      env:
+        INPUT_CHANNEL: ${{ inputs.channel }}
+        INPUT_TEXT: ${{ inputs.text }}
       run: |
-        [[ "${{ inputs.channel }}" ]] || { echo "required input 'channel' not specified" ; exit 1; }
-        [[ "${{ inputs.text }}" ]] || { echo "required input 'text' not specified" ; exit 1; }
+        [[ "$INPUT_CHANNEL" ]] || { echo "required input 'channel' not specified"; exit 1; }
+        [[ "$INPUT_TEXT" ]] || { echo "required input 'text' not specified"; exit 1; }
     - name: POST to chat.postMessage API
       id: slack-post-message
       shell: bash
