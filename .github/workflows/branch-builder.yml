@@ -54,3 +54,14 @@ jobs:
             • Mobile apps now show bank institution names and logos
             • Improved mobile app performance when loading budget data
           unfurl_links: false
+      - name: Test Slack message with multiline text containing double quotes
+        uses: ./
+        with:
+          channel: ${{ env.SLACK_CHANNEL_ID }}
+          thread_ts: ${{ steps.basic-message.outputs.ts }}
+          text: |-
+            :rocket: *Test multiline with "quoted" text*
+
+            • Fixed a bug where the "assign money" prompt appeared too early
+            • Improved the "getting started" onboarding flow
+          unfurl_links: false
