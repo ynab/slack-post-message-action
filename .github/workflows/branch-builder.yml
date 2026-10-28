@@ -84,7 +84,7 @@ jobs:
           channel: "not-a-real-channel-${{ github.run_id }}"
           text: "This message should never be posted"
       - name: Assert the Slack API error failed the step
-        if: steps.api-error.outcome != 'failure'
+        if: steps.api-error.outcome != 'failure' || steps.api-error.outputs.error != 'channel_not_found'
         run: |
-          echo "::error::Expected the post to a nonexistent channel to fail, but its outcome was '${{ steps.api-error.outcome }}'"
+          echo "::error::Expected the post to a nonexistent channel to fail with channel_not_found, but its outcome was '${{ steps.api-error.outcome }}' with error '${{ steps.api-error.outputs.error }}'"
           exit 1

@@ -21,6 +21,9 @@ outputs:
   ts:
     description: "The timestamp ID of the message that was just posted"
     value: ${{steps.slack-post-message.outputs.ts}}
+  error:
+    description: "The Slack API error code (e.g. channel_not_found) if the post failed"
+    value: ${{steps.slack-post-message.outputs.error}}
 branding:
   icon: 'tag'
   color: 'blue'
@@ -32,9 +35,15 @@ runs:
       env:
         INPUT_CHANNEL: ${{ inputs.channel }}
         INPUT_TEXT: ${{ inputs.text }}
+        INPUT_UNFURL_LINKS: ${{ inputs.unfurl_links }}
       run: |
+        # ${var@E} below needs bash 4.4+
+        (( BASH_VERSINFO[0] > 4 || (BASH_VERSINFO[0] == 4 && BASH_VERSINFO[1] >= 4) )) \
+          || { echo "::error::slack-post-message-action requires bash 4.4+ (found $BASH_VERSION)"; exit 1; }
         [[ "$INPUT_CHANNEL" ]] || { echo "required input 'channel' not specified"; exit 1; }
         [[ "$INPUT_TEXT" ]] || { echo "required input 'text' not specified"; exit 1; }
+        [[ "$INPUT_UNFURL_LINKS" == true || "$INPUT_UNFURL_LINKS" == false ]] \
+          || { echo "::error::input 'unfurl_links' must be true or false (got '$INPUT_UNFURL_LINKS')"; exit 1; }
     - name: POST to chat.postMessage API
       id: slack-post-message
       shell: bash
@@ -45,28 +54,36 @@ runs:
         INPUT_UNFURL_LINKS: ${{ inputs.unfurl_links }}
         INPUT_TEXT: ${{ inputs.text }}
       run: |
-        # Interpret backslash escapes (\n, \', \\, ...) exactly as the old $'...'
-        # bash quoting did, for backwards compatibility. This never runs
-        # commands or expands variables: `...`, $(...) and $VAR stay literal.
+        # Interpret backslash escapes (\n, \', \\, ...) the way bash's $'...' quoting
+        # does, which keeps the common v1.4 escapes working. (v1.4 also decoded
+        # the result again as a JSON string, so e.g. \\n used to become a newline
+        # and is now a literal \n.) This never runs commands or expands
+        # variables: `...`, $(...) and $VAR stay literal.
         text=${INPUT_TEXT@E}
         payload=$(jq --null-input \
           --arg channel "$INPUT_CHANNEL" \
           --arg thread_ts "$INPUT_THREAD_TS" \
-          --arg unfurl_links "$INPUT_UNFURL_LINKS" \
+          --argjson unfurl_links "$INPUT_UNFURL_LINKS" \
           --arg text "$text" \
-          '{channel: $channel, unfurl_links: ($unfurl_links != "false"), text: $text}
+          '{channel: $channel, unfurl_links: $unfurl_links, text: $text}
             + if $thread_ts != "" then {thread_ts: $thread_ts} else {} end')
-        response=$(curl --fail-with-body --silent --show-error \
+        # --fail-with-body still writes Slack's response body on an HTTP error (429, 5xx)
+        if ! response=$(curl --fail-with-body --silent --show-error \
           --request POST \
           --header "Authorization: Bearer $INPUT_TOKEN" \
           --header "Content-Type: application/json; charset=utf-8" \
           --url https://slack.com/api/chat.postMessage \
           --data "$payload" \
-        )
+        ); then
+          printf 'Slack message API request failed:\n%s\n' "$response"
+          exit 1
+        fi
         printf 'Slack message API response:\n%s\n' "$response"
         # Slack reports API errors (e.g. channel_not_found) with HTTP 200 and "ok": false
         if [[ $(jq --raw-output '.ok' <<< "$response") != "true" ]]; then
-          echo "::error::Slack chat.postMessage failed: $(jq --raw-output '.error' <<< "$response")"
+          error=$(jq --raw-output '.error' <<< "$response")
+          echo "error=$error" >> "$GITHUB_OUTPUT"
+          echo "::error::Slack chat.postMessage failed: $error"
           exit 1
         fi
         ts=$(jq --raw-output '.ts' <<< "$response")
