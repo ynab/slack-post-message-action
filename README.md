@@ -21,7 +21,8 @@ GitHub Action that posts a message to a Slack channel
 **Required** The message text to post. See [Slack's documentation on formatting](https://api.slack.com/reference/surfaces/formatting#basic-formatting).
     
 Notes:
-  - single quotes in your message *must* be escaped as `\'` due to how this input is consumed by bash (example: `text: "This is a \'single quote\' test"`)
+  - quotes, backticks, `$(...)` and `$VAR` in the text are posted literally, never executed or expanded
+  - backslash escapes are interpreted the way bash's `$'...'` quoting does (e.g. `\n` becomes a newline and `\'` becomes `'`), so write `\\` for a literal backslash
   - environment variables will only be expanded if referenced using the `env` GitHub Action context `${{ env.MY_VAR }}` format (example: `text: "This is the value of MY_VAR: ${{ env.MY_VAR }}"`)
 
 ### `unfurl_links`

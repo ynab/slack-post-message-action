@@ -39,28 +39,36 @@ runs:
       id: slack-post-message
       shell: bash
       env:
+        INPUT_TOKEN: ${{ env.SLACK_BOT_TOKEN || inputs.token }}
         INPUT_CHANNEL: ${{ inputs.channel }}
         INPUT_THREAD_TS: ${{ inputs.thread_ts }}
         INPUT_UNFURL_LINKS: ${{ inputs.unfurl_links }}
         INPUT_TEXT: ${{ inputs.text }}
       run: |
-        # Interpret escape sequences (e.g. \n) so jq encodes them correctly,
-        # preserving backwards compatibility with the old $'...' bash quoting.
-        INPUT_TEXT=$(printf '%b' "$INPUT_TEXT")
+        # Interpret backslash escapes (\n, \', \\, ...) exactly as the old $'...'
+        # bash quoting did, for backwards compatibility. This never runs
+        # commands or expands variables: `...`, $(...) and $VAR stay literal.
+        text=${INPUT_TEXT@E}
         payload=$(jq --null-input \
           --arg channel "$INPUT_CHANNEL" \
           --arg thread_ts "$INPUT_THREAD_TS" \
-          --argjson unfurl_links "$INPUT_UNFURL_LINKS" \
-          --arg text "$INPUT_TEXT" \
-          '{channel: $channel, thread_ts: $thread_ts, unfurl_links: $unfurl_links, text: $text}')
+          --arg unfurl_links "$INPUT_UNFURL_LINKS" \
+          --arg text "$text" \
+          '{channel: $channel, unfurl_links: ($unfurl_links != "false"), text: $text}
+            + if $thread_ts != "" then {thread_ts: $thread_ts} else {} end')
         response=$(curl --fail-with-body --silent --show-error \
           --request POST \
-          --header "Authorization: Bearer ${{ env.SLACK_BOT_TOKEN || inputs.token }}" \
+          --header "Authorization: Bearer $INPUT_TOKEN" \
           --header "Content-Type: application/json; charset=utf-8" \
           --url https://slack.com/api/chat.postMessage \
           --data "$payload" \
         )
-        echo "Slack message API response:\n$response"
-        ts=$(echo "$response" | jq --raw-output '.ts')
+        printf 'Slack message API response:\n%s\n' "$response"
+        # Slack reports API errors (e.g. channel_not_found) with HTTP 200 and "ok": false
+        if [[ $(jq --raw-output '.ok' <<< "$response") != "true" ]]; then
+          echo "::error::Slack chat.postMessage failed: $(jq --raw-output '.error' <<< "$response")"
+          exit 1
+        fi
+        ts=$(jq --raw-output '.ts' <<< "$response")
         echo "Setting ts output to $ts"
-        echo "ts=$ts" >> $GITHUB_OUTPUT
+        echo "ts=$ts" >> "$GITHUB_OUTPUT"

@@ -38,7 +38,7 @@ jobs:
         with:
           channel: ${{ env.SLACK_CHANNEL_ID }}
           thread_ts: ${{ steps.basic-message.outputs.ts }}
-          text: "Test various text formatting:\n• Single quotes must be escaped \\' (b/c bash)\n• literal emoji 😀\n• colon-formatted emoji :blob-wave:\n• *bold text*\n• _italicized text_\n• ~strikethrough text~\n• `inline code`\n• Automatically linked text www.ynab.com\n• Link with <http://www.ynab.com|custom text>\n>Block quote\n```Multi-line\ncode```"
+          text: "Test various text formatting:\n• Single quotes don't need escaping, and the legacy escaped form still works: won\\'t\n• literal emoji 😀\n• colon-formatted emoji :blob-wave:\n• *bold text*\n• _italicized text_\n• ~strikethrough text~\n• `inline code`\n• Automatically linked text www.ynab.com\n• Link with <http://www.ynab.com|custom text>\n>Block quote\n```Multi-line\ncode```"
           unfurl_links: false
       - name: Test Slack message with multiline text (literal newlines)
         uses: ./
@@ -65,3 +65,26 @@ jobs:
             • Fixed a bug where the "assign money" prompt appeared too early
             • Improved the "getting started" onboarding flow
           unfurl_links: false
+      - name: Test Slack message with shell and JSON metacharacters
+        uses: ./
+        with:
+          channel: ${{ env.SLACK_CHANNEL_ID }}
+          thread_ts: ${{ steps.basic-message.outputs.ts }}
+          text: |-
+            Shell/JSON metacharacters (should all appear literally, nothing executed):
+            • doesn't "load" \ `x` $(id) ${HOME} $GITHUB_SHA
+            • a JSON-looking string: {"text": "nope", "ok": false}
+            • escaped backslash \\ becomes one backslash
+          unfurl_links: false
+      - name: Test that a Slack API error fails the step
+        id: api-error
+        continue-on-error: true
+        uses: ./
+        with:
+          channel: "not-a-real-channel-${{ github.run_id }}"
+          text: "This message should never be posted"
+      - name: Assert the Slack API error failed the step
+        if: steps.api-error.outcome != 'failure'
+        run: |
+          echo "::error::Expected the post to a nonexistent channel to fail, but its outcome was '${{ steps.api-error.outcome }}'"
+          exit 1
