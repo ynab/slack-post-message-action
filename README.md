@@ -21,12 +21,17 @@ GitHub Action that posts a message to a Slack channel
 **Required** The message text to post. See [Slack's documentation on formatting](https://api.slack.com/reference/surfaces/formatting#basic-formatting).
     
 Notes:
-  - single quotes in your message *must* be escaped as `\'` due to how this input is consumed by bash (example: `text: "This is a \'single quote\' test"`)
+  - quotes, backticks, `$(...)` and `$VAR` in the text are posted literally, never executed or expanded
+  - backslash escapes are interpreted the way bash's `$'...'` quoting does (e.g. `\n` becomes a newline and `\'` becomes `'`), so write `\\` for a literal backslash. In a double-quoted YAML string, YAML removes one layer of escaping first, so double each backslash again (example: `text: "C:\\\\temp, won\\'t"` posts `C:\temp, won't`, the same as `C:\\temp, won\'t` in a `|` block scalar)
   - environment variables will only be expanded if referenced using the `env` GitHub Action context `${{ env.MY_VAR }}` format (example: `text: "This is the value of MY_VAR: ${{ env.MY_VAR }}"`)
 
 ### `unfurl_links`
 
 **Optional** Whether links in the message should be unfurled (default: `true`)
+
+## Requirements
+
+The runner's `bash` must be version 4.4 or newer (GitHub-hosted runners are).
 
 ## Outputs
 
@@ -34,11 +39,15 @@ Notes:
 
 The timestamp ID of the message (can be used to make subsequent Slack messages a threaded reply)
 
+### `error`
+
+The Slack API error code (e.g. `channel_not_found`, or `ratelimited` on an HTTP 429) when Slack rejected the message. The step fails in that case, so read this from a step with `continue-on-error: true`.
+
 ## Example usage
 
 ```yaml
 - name: Post Slack message
-  uses: ynab/slack-post-message-action@v1.4
+  uses: ynab/slack-post-message-action@v1.6
   with:
     token: ${{ secrets.SLACK_API_TOKEN }}
     channel: "#general"
