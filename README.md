@@ -41,7 +41,7 @@ The timestamp ID of the message (can be used to make subsequent Slack messages a
 
 ### `error`
 
-The Slack API error code (e.g. `channel_not_found`) when Slack rejected the message. The step fails in that case, so read this from a step with `continue-on-error: true`.
+The Slack API error code (e.g. `channel_not_found`, or `ratelimited` on an HTTP 429) when Slack rejected the message. The step fails in that case, so read this from a step with `continue-on-error: true`.
 
 ## Example usage
 

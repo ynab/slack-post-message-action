@@ -76,6 +76,8 @@ runs:
           --data "$payload" \
         ); then
           printf 'Slack message API request failed:\n%s\n' "$response"
+          error=$(jq --raw-output '.error // empty' <<< "$response" 2>/dev/null) || true
+          [[ -z "$error" ]] || echo "error=$error" >> "$GITHUB_OUTPUT"
           exit 1
         fi
         printf 'Slack message API response:\n%s\n' "$response"
