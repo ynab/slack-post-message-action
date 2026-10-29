@@ -47,7 +47,7 @@ The Slack API error code (e.g. `channel_not_found`) when Slack rejected the mess
 
 ```yaml
 - name: Post Slack message
-  uses: ynab/slack-post-message-action@v1.4
+  uses: ynab/slack-post-message-action@v1.6
   with:
     token: ${{ secrets.SLACK_API_TOKEN }}
     channel: "#general"
